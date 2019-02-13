@@ -32,23 +32,31 @@ Rustの標準ライブラリも使えない。
 なんかは使える。
 
 RustでOSのカーネルを作るためには、OSに依存せずに実行できるものを作らないといけない。
+
 "**freestanding**"とか"**bare-metal**"なんて呼ばれているらしい。
 それを作っていく。
 
 
 ### Disabling the Standard Library
 ふつう、Rustのクレートは標準ライブラリとリンクしていて、
+
 スレッドやファイルやネットワーキングなどの機能はOSに依存している。
+
 また`libc`(Cの標準ライブラリ)にも依存していて、これがOSと緊密に連携している。
 
 今回の目標はOSを書いてみることなので、あらゆるOS依存のライブラリは使わない。
+
 そこで自動で標準ライブラリがインクルードされるのを防ぐために`no_std`アトリビュートを使う。
 
 #### The `no_std` Attribute
 cargoで新しいプロジェクトを作り、他はいじらずに`main.rs`の先頭に`#![no_std]`をつける。
+
 これで`cargo build`してみると、`println!`マクロがないと怒られる。
+
 `println!`は、標準出力(OSが提供する特別なファイルディスクリプタ)に書き込むために
+
 標準ライブラリに用意されているマクロなので`no_std`だと使えない。
+
 なので`println!("Hello, world!")`を取り除いて空の`main`関数にする。
 
 `cargo build`すると、
@@ -58,5 +66,42 @@ error: `#[panic_handler]` function required, but not found
 error: language item required, but not found: `eh_personality`
 ```
 みたいなエラーがでる。
+
 `#[panic_handler]`の関数と、`eh_personality`とかいう言語アイテムがないらしい。
+
 この２つのエラーを解決する。
+
+#### Panic Implementation
+`panic_handler`アトリビュートは、panicが起こったときに呼ばれる関数を定義するやつ。
+
+`no_std`だと自分で用意する必要がある。
+
+書かれているとおりに`panic`関数を定義する。
+
+`!`型のことを`never type`といって、それを返す関数を`diverging function(発散する関数)`というらしい。
+
+#### The `eh_personality` Language Item
+`Language items(言語アイテム)`というのはコンパイラ向けの特別な関数や型のこと。たとえばCopyトレイトがそう。
+
+ここでは`eh_personality`言語アイテムが必要なんだけど、今回は自分で実装しない。
+(型チェックが効かなかったり、実装がunstableで、要するに煩雑なのかな)
+
+代わりの方法で回避する。
+
+この`eh_personality `言語アイテムは、panic時のスタックのアンワインドに関わるものらしい。
+
+いろいろ込み入っていて、OS specificなライブラリを使っていたりもするので今回は踏み込まない。ただ単にアンワインドを無効にする。
+
+#### Disabling Unwinding
+RustにはpanicをabortするオプションがあるのでCargo.tomlに設定する。
+
+これで`eh_personality`がなくても大丈夫になる。
+
+`cargo build`してみると今度は
+```
+> cargo build
+error: requires `start` lang_item
+```
+というエラーがでる。
+
+
