@@ -3,19 +3,19 @@
 #![cfg_attr(test, allow(unused_imports))]
 
 use core::panic::PanicInfo;
-use rust_de_os::println;
+use rust_de_os::{exit_qemu, serial_println};
 
 #[cfg(not(test))]
-#[no_mangle] // don't mangle the name of this function
+#[no_mangle]
 pub extern "C" fn _start() -> ! {
-    println!("Hello World{}", "!");
-
-    loop {}
+    panic!();
 }
 
 #[cfg(not(test))]
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    println!("{}", info);
+fn panic(_info: &PanicInfo) -> ! {
+    serial_println!("ok");
+
+    unsafe { exit_qemu(); }
     loop {}
 }
